@@ -26,6 +26,16 @@ int main(int argc, char **argv)
   return (0);
 }
 
+size_t strlenn(const char *buffer)
+{
+  size_t	len;
+
+  len = 0;
+  while (buffer[len] != '\n')
+    ++len;
+  return (len);
+}
+
 void start_listening(int port)
 {
   int			sock;
@@ -50,7 +60,7 @@ void start_listening(int port)
 	printf("Erreur d'accept\n");
       while (client_list.mutex == 1);
       client_list.mutex = 1;
-      add_client(client_list.list, client);
+      client_list.list = add_client(client_list.list, client);
       pthread_create(&client_list.nb_clients, NULL, listen_client, client);
       ++(client_list.nb_clients);
       client_list.mutex = 0;
@@ -61,6 +71,7 @@ void *listen_client(void *arg)
 {
   t_client	*client;
   unsigned int	size;
+  size_t	len;
   char		buffer[255];
 
   client = (t_client*)arg;
@@ -68,9 +79,10 @@ void *listen_client(void *arg)
     {
       if ((recvfrom(client->sock, buffer, 255, 0, (struct sockaddr*)(&client->sock_in), &size)) == -1)
 	printf("Erreur recv\n");
-      send_all(buffer);
+      len = strlenn(buffer);
+      send_all(buffer, len);
       printf("%s\n", buffer);
-      if (strncmp("bye", buffer, 3) == 0)
+      if (len > 2 && strncmp("bye", buffer, 3) == 0)
 	close_client(client);
     }
   return (NULL);
@@ -86,7 +98,7 @@ void close_client(t_client *client)
   pthread_exit(NULL);
 }
 
-void send_all(char *buffer)
+void send_all(char *buffer, size_t len)
 {
   t_client	*list;
 
@@ -95,7 +107,7 @@ void send_all(char *buffer)
   list = client_list.list;
   while (list != NULL)
     {
-
+      printf("%d\n", send(list->sock, buffer, len + 1, 0));
       list = list->next;
     }
   client_list.mutex = 0;
@@ -105,7 +117,8 @@ void delete_client(t_client *client)
 {
   if (client->prev != NULL)
     client->prev->next = client->next;
-  client->next->prev = client->prev;
+  if (client->next != NULL)
+    client->next->prev = client->prev;
   free(client);
 }
 
@@ -114,8 +127,12 @@ t_client *add_client(t_client *list, t_client *client)
   t_client	*first;
 
   first = list;
+  client->next = NULL;
   if (list == NULL)
-    return (client);
+    {
+      client->prev = NULL;
+      return (client);
+    }
   while (list->next != NULL)
     list = list->next;
   list->next = client;

@@ -1,7 +1,7 @@
 NAME=	tcpchat
 SRC=	main.c
 OBJ=	$(SRC:.c=.o)
-CFLAGS=	-W -Wall -lpthread -D_REENTRANT
+CFLAGS=	-W -Wall -g -lpthread -D_REENTRANT
 CC=	gcc
 RM=	@rm -fv
 
