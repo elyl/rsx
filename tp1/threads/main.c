@@ -97,7 +97,7 @@ void *listen_client(void *arg)
 	    }
 	}
       else
-	send_all(buffer, len);
+	send_all(buffer, len - 1);
       if (len > 2 && strncmp("bye", buffer, 3) == 0)
 	close_client(client);
     }
