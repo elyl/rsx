@@ -5,6 +5,11 @@
 
 void echo(char *args, t_client *client)
 {
+  do_echo(args, client, 1);
+}
+
+void do_echo(char *args, t_client *client, int display)
+{
   char	buffer[BUFFER_SIZE + 1];
   char	*ptr;
   int	n;
@@ -23,16 +28,17 @@ void echo(char *args, t_client *client)
   c = 0;
   if (ptr != NULL)
     {
-      printf("NOT NULL\n");
       c = strlen(ptr) - 2; //strlen renvoie 1 trop grand; -1 pour le \n
       ptr[c] = '\0'; // Sert à rien, strtok le fait deja
-      send(client->sock, ptr, n, 0);
+      if (display == 1)
+	send(client->sock, ptr, n, 0);
     }
   printf("%d %d %s\n", n, c, ptr);
   while (c < n)
     {
       n2 = receive(client, buffer, BUFFER_SIZE);
-      send(client->sock, buffer, n2, 0);
+      if (display == 1)
+	send(client->sock, buffer, n2, 0);
       c += n2;
     }
   strcpy(buffer, "[echo ");
@@ -45,8 +51,7 @@ void echo(char *args, t_client *client)
 
 void ack(char *args, t_client *client)
 {
-  //echo(args, client, 0);
-  return;
+  do_echo(args, client, 0);
 }
 
 void compute(char *agrs, t_client *client)

@@ -36,6 +36,7 @@ void		close_client(t_client *client);
 void		echo(char *args, t_client *client);
 void		ack(char *args, t_client *client);
 void		compute(char *args, t_client *client);
+void		do_echo(char *argcs, t_client *client, int display);
 
 void		*listen_client(void *arg);
 
