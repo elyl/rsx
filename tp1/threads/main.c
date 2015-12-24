@@ -4,6 +4,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <string.h>
+#include <errno.h>
 #include "tcpchat.h"
 
 static t_client_list	client_list;
@@ -16,7 +17,7 @@ static t_command cmd[] = {
 int main(int argc, char **argv)
 {
   int			port;
-
+  
   client_list.nb_clients = 0;
   client_list.mutex = 0;
   if (argc < 2)
@@ -74,16 +75,17 @@ void *listen_client(void *arg)
 {
   t_client	*client;
   unsigned int	size;
-  size_t	len;
+  int		len;
   char		buffer[BUFFER_SIZE];
   int		i;
 
   client = (t_client*)arg;
+  size = 0;
   while (1)
     {
       if ((len = recvfrom(client->sock, buffer, BUFFER_SIZE, 0, (struct sockaddr*)(&client->sock_in), &size)) == -1)
-	printf("Erreur recv\n");
-      printf("%s\n", buffer);
+	printf("Erreur recv %d\n", errno);
+      printf("%d %s\n", len, buffer);
       if (len > 1 && buffer[0] == '/')
 	{
 	  i = 0;
@@ -121,7 +123,7 @@ void send_all(char *buffer, size_t len)
   list = client_list.list;
   while (list != NULL)
     {
-      printf("%d\n", send(list->sock, buffer, len + 1, 0));
+      printf("%d\n", (int)send(list->sock, buffer, len + 1, 0));
       list = list->next;
     }
   client_list.mutex = 0;
