@@ -1,6 +1,11 @@
 #ifndef __TCPCHAT_H__
 #define __TCPCHAT_H__
 
+#include <pthread.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+
 #define BUFFER_SIZE 255
 
 typedef struct s_client
@@ -28,13 +33,18 @@ void		start_listening(int port);
 void		delete_client(t_client *client);
 void		send_all(char *buffer, size_t len);
 void		close_client(t_client *client);
-void		echo(char *arg);
-void		ack(char *arg);
-void		compute(char *agr);
+void		echo(char *args, t_client *client);
+void		ack(char *args, t_client *client);
+void		compute(char *args, t_client *client);
 
 void		*listen_client(void *arg);
 
 size_t		strlenn(const char *buffer);
+
+char		*itoa(int n);
+
+int		receive(t_client *client, char *buffer, int buffer_size);
+int		send_buffer(int socket, char *buffer, int len);
 
 t_client	*add_client(t_client *list, t_client *client);
 

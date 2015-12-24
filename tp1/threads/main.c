@@ -1,17 +1,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/types.h>
-#include <pthread.h>
 #include <string.h>
 #include "tcpchat.h"
 
 static t_client_list	client_list;
 static t_command cmd[] = {
-  {"ack",	ps},
-  {"echo",	ls},
+  {"ack",	ack},
+  {"echo",	echo},
   {"compute",	compute}
 };
 
@@ -78,15 +76,26 @@ void *listen_client(void *arg)
   unsigned int	size;
   size_t	len;
   char		buffer[BUFFER_SIZE];
+  int		i;
 
   client = (t_client*)arg;
   while (1)
     {
-      if ((recvfrom(client->sock, buffer, BUFFER_SIZE, 0, (struct sockaddr*)(&client->sock_in), &size)) == -1)
+      if ((len = recvfrom(client->sock, buffer, BUFFER_SIZE, 0, (struct sockaddr*)(&client->sock_in), &size)) == -1)
 	printf("Erreur recv\n");
-      len = strlenn(buffer); // Moche, recvfrom le renvoie
-      send_all(buffer, len);
       printf("%s\n", buffer);
+      if (len > 1 && buffer[0] == '/')
+	{
+	  i = 0;
+	  while (i < 2)
+	    {
+	      if (strncmp(cmd[i].text, buffer, strlen(cmd[i].text)))
+		cmd[i].fn(buffer, client);
+	      ++i;
+	    }
+	}
+      else
+	send_all(buffer, len);
       if (len > 2 && strncmp("bye", buffer, 3) == 0)
 	close_client(client);
     }
