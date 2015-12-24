@@ -46,6 +46,7 @@ char		*itoa(int n);
 
 int		receive(t_client *client, char *buffer, int buffer_size);
 int		send_buffer(int socket, char *buffer, int len);
+int		fibo(int n);
 
 t_client	*add_client(t_client *list, t_client *client);
 

@@ -56,6 +56,26 @@ void ack(char *args, t_client *client)
 
 void compute(char *agrs, t_client *client)
 {
-  return;
+  int	n;
+  char	buffer[255];
+  char	*ptr;
+
+  n = fibo(10);
+  strcpy(buffer, "[Compute OK : ");
+  ptr = itoa(n);
+  strcat(buffer, ptr);
+  free(ptr);
+  strcat(buffer, "]");
+  send(client->sock, buffer, strlen(buffer), 0);
 }
 
+int fibo(int n)
+{
+  if (n == 0)
+    return (0);
+  if (n == 1)
+    return (1);
+  if (n == 2)
+    return (1);
+  return (fibo(n - 1) + fibo(n - 2));
+}
