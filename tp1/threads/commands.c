@@ -60,6 +60,7 @@ void compute(char *agrs, t_client *client)
   char	buffer[255];
   char	*ptr;
 
+  printf("computing !\n");
   n = fibo(10);
   strcpy(buffer, "[Compute OK : ");
   ptr = itoa(n);

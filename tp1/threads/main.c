@@ -89,9 +89,9 @@ void *listen_client(void *arg)
       if (len > 1 && buffer[0] == '/')
 	{
 	  i = 0;
-	  while (i < 2)
+	  while (i < 3)
 	    {
-	      if (strncmp(cmd[i].text, buffer, strlen(cmd[i].text)))
+	      if (strncmp(cmd[i].text, &buffer[1], strlen(cmd[i].text)) == 0)
 		cmd[i].fn(buffer, client);
 	      ++i;
 	    }
