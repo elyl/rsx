@@ -43,7 +43,7 @@ void		compute(char *args, t_client *client);
 void		do_echo(char *argcs, t_client *client, int display);
 void		add_all(fd_set *set);
 void		do_listen(int sock, struct sockaddr_in *sock_in);
-void		do_recv();
+void		do_recv(int n);
 
 char		*itoa(int n);
 

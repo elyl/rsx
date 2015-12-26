@@ -68,41 +68,44 @@ void do_listen(int sock, struct sockaddr_in *sock_in)
       client = malloc(sizeof(t_client));
       if (FD_ISSET(sock, &readfds))
 	{
+	  printf("fdset ok %d\n", FD_ISSET(sock, &readfds));
 	  --n;
 	  printf("Ajout d'un client\n");
 	  if ((client->sock = accept(sock, (struct sockaddr*)sock_in, &size)) == -1)
 	    printf("Erreur d'accept\n");
 	  client_list.list = add_client(client_list.list, client);
 	  if (client->sock > fdmax)
-	    fdmax = client->sock;
+	    {
+	      printf("new fdmax\n");
+	      fdmax = client->sock;
+	    }
 	}
-      if (n != 0)
-	do_recv();
+      if (n > 0)
+	do_recv(n);
       printf("Ajout principal\n");
       add_all(&readfds);
       FD_SET(sock, &readfds);
     }
 }
 
-void do_recv()
+void do_recv(int n)
 {
   int		len;
   t_client	*client;
   char		buffer[BUFFER_SIZE];
   int		i;
-  int		n;
   unsigned int	size;
 
   size = 0;
-  add_all(&readfds);
   printf("Ecoute d'un client\n");
-  n = select(fdmax + 1, &readfds, NULL, NULL, NULL);
   client = client_list.list;
-  while (client != NULL && n != 0)
+  while (client != NULL && n > 0)
     {
-      if (FD_ISSET(client->sock, &readfds))	
+      printf("Et ca boucle, boucle boucle !\n");
+      if (FD_ISSET(client->sock, &readfds) == 1)	
 	{
-	  printf("En attente de reception\n");
+	  --n;
+	  printf("En attente de reception %d\n", client->sock);
 	  if ((len = recvfrom(client->sock, buffer, BUFFER_SIZE, 0, (struct sockaddr*)(&client->sock_in), &size)) == -1)
 	    printf("Erreur recv %d\n", errno);
 	  printf("%d %s\n", len, buffer);
@@ -120,9 +123,8 @@ void do_recv()
 	    send_all(buffer, len - 1);
 	  if (len > 2 && strncmp("bye", buffer, 3) == 0)
 	    close_client(client);
-	  --n;
-	  client = client->next;
 	}
+      client = client->next;
     }
 }
 
@@ -142,7 +144,7 @@ void send_all(char *buffer, size_t len)
   n = select(fdmax + 1, NULL, &writefds, NULL, NULL);
   printf("Dispo détectée !\n");
   list = client_list.list;
-  while (list != NULL && n != 0)
+  while (list != NULL && n > 0)
     {
       if (FD_ISSET(list->sock, &writefds))
 	{
