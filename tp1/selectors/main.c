@@ -1,54 +1,42 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <netinet/in.h>
 #include <sys/socket.h>
 #include <sys/types.h>
-#include <pthread.h>
-#include <string.h>
 #include <sys/select.h>
+#include <string.h>
+#include <errno.h>
 #include "tcpchat.h"
 
+extern fd_set	readfds;
+extern fd_set	writefds;
+extern int	fdmax;
+
 static t_client_list	client_list;
-static fd_set		set_access;
-static fd_set		set_write;
-static fd_set		set_read;
+static t_command cmd[] = {
+  {"ack",	ack},
+  {"echo",	echo},
+  {"compute",	compute}
+};
 
 int main(int argc, char **argv)
 {
   int			port;
-
-  client_list.nb_clients = 0;
-  client_list.mutex = 0;
+  
   if (argc < 2)
     {
       printf("Usage : ./tcpchat <port>\n");
       exit (1);
     }
   port = atoi(argv[1]);
-  FD_ZERO(&set_access);
-  FD_ZERO(&set_read);
-  FD_ZERO(&set_write);
   start_listening(port);
   return (0);
-}
-
-size_t strlenn(const char *buffer)
-{
-  size_t	len;
-
-  len = 0;
-  while (buffer[len] != '\n')
-    ++len;
-  return (len);
 }
 
 void start_listening(int port)
 {
   int			sock;
-  unsigned int		size;
   struct sockaddr_in	sock_in;
-  t_client		*client;
   
   if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1)
     printf("Erreur de generation de socket\n");
@@ -59,65 +47,111 @@ void start_listening(int port)
     printf("Erreur de bind\n");
   if ((listen(sock, 5)) == -1)
     printf("Erreur de listen\n");
-  size = sizeof(sock_in);
-  while (1)
-    {
-      client = malloc(sizeof(t_client));
-      if ((client->sock = accept(sock, (struct sockaddr*)&sock_in, &size)) == -1)
-	printf("Erreur d'accept\n");
-      while (client_list.mutex == 1);
-      client_list.mutex = 1;
-      client_list.list = add_client(client_list.list, client);
-      pthread_create(&client_list.nb_clients, NULL, listen_client, client);
-      ++(client_list.nb_clients);
-      client_list.mutex = 0;
-    }
+  fdmax = sock;
+  FD_ZERO(&readfds);
+  FD_SET(sock, &readfds);
+  do_listen(sock, &sock_in);
 }
 
-void *listen_client(void *arg)
+void do_listen(int sock, struct sockaddr_in *sock_in)
 {
   t_client	*client;
   unsigned int	size;
-  size_t	len;
-  char		buffer[255];
+  int		n;
 
-  client = (t_client*)arg;
   while (1)
     {
-      if ((recvfrom(client->sock, buffer, 255, 0, (struct sockaddr*)(&client->sock_in), &size)) == -1)
-	printf("Erreur recv\n");
-      len = strlenn(buffer);
-      send_all(buffer, len);
-      printf("%s\n", buffer);
-      if (len > 2 && strncmp("bye", buffer, 3) == 0)
-	close_client(client);
+      size = sizeof(*sock_in);
+      printf("Mise en attente...\n");
+      n = select(fdmax + 1, &readfds, NULL, NULL, NULL);
+      printf("Activité detectee %d\n", n);
+      client = malloc(sizeof(t_client));
+      if (FD_ISSET(sock, &readfds))
+	{
+	  --n;
+	  printf("Ajout d'un client\n");
+	  if ((client->sock = accept(sock, (struct sockaddr*)sock_in, &size)) == -1)
+	    printf("Erreur d'accept\n");
+	  client_list.list = add_client(client_list.list, client);
+	  if (client->sock > fdmax)
+	    fdmax = client->sock;
+	}
+      if (n != 0)
+	do_recv();
+      printf("Ajout principal\n");
+      add_all(&readfds);
+      FD_SET(sock, &readfds);
     }
-  return (NULL);
+}
+
+void do_recv()
+{
+  int		len;
+  t_client	*client;
+  char		buffer[BUFFER_SIZE];
+  int		i;
+  int		n;
+  unsigned int	size;
+
+  size = 0;
+  add_all(&readfds);
+  printf("Ecoute d'un client\n");
+  n = select(fdmax + 1, &readfds, NULL, NULL, NULL);
+  client = client_list.list;
+  while (client != NULL && n != 0)
+    {
+      if (FD_ISSET(client->sock, &readfds))	
+	{
+	  printf("En attente de reception\n");
+	  if ((len = recvfrom(client->sock, buffer, BUFFER_SIZE, 0, (struct sockaddr*)(&client->sock_in), &size)) == -1)
+	    printf("Erreur recv %d\n", errno);
+	  printf("%d %s\n", len, buffer);
+	  if (len > 1 && buffer[0] == '/')
+	    {
+	      i = 0;
+	      while (i < 3)
+		{
+		  if (strncmp(cmd[i].text, &buffer[1], strlen(cmd[i].text)) == 0)
+		    cmd[i].fn(buffer, client);
+		  ++i;
+		}
+	    }
+	  else
+	    send_all(buffer, len - 1);
+	  if (len > 2 && strncmp("bye", buffer, 3) == 0)
+	    close_client(client);
+	  --n;
+	  client = client->next;
+	}
+    }
 }
 
 void close_client(t_client *client)
 {
-  while (client_list.mutex == 1);
-  client_list.mutex = 1;
   close(client->sock);
   delete_client(client);
-  client_list.mutex = 0;
-  pthread_exit(NULL);
 }
 
 void send_all(char *buffer, size_t len)
 {
   t_client	*list;
+  int		n;
 
-  while (client_list.mutex == 1);
-  client_list.mutex = 1;
+  add_all(&writefds);
+  printf("Attente d'une dispo en écriture\n");
+  n = select(fdmax + 1, NULL, &writefds, NULL, NULL);
+  printf("Dispo détectée !\n");
   list = client_list.list;
-  while (list != NULL)
+  while (list != NULL && n != 0)
     {
-      printf("%d\n", send(list->sock, buffer, len + 1, 0));
+      if (FD_ISSET(list->sock, &writefds))
+	{
+	  printf("%d\n", (int)send(list->sock, buffer, len + 1, 0));
+	  --n;
+	}
+      // Ajouter dans un buffer si pas ok
       list = list->next;
     }
-  client_list.mutex = 0;
 }
 
 void delete_client(t_client *client)
@@ -145,4 +179,18 @@ t_client *add_client(t_client *list, t_client *client)
   list->next = client;
   client->prev = list;
   return (first);
+}
+
+void add_all(fd_set *set)
+{
+  t_client	*ptr;
+
+  FD_ZERO(set);
+  ptr = client_list.list;
+  while (ptr != NULL)
+    {
+      printf("Ajout : %d\n", ptr->sock);
+      FD_SET(ptr->sock, set);
+      ptr = ptr->next;
+    }
 }

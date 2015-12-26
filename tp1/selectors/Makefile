@@ -1,5 +1,8 @@
 NAME=	tcpchat
-SRC=	main.c
+SRC=	main.c	\
+	net.c	\
+	commands.c \
+	itoa.c
 OBJ=	$(SRC:.c=.o)
 CFLAGS=	-W -Wall -g -lpthread -D_REENTRANT
 CC=	gcc
