@@ -1,0 +1,17 @@
+NAME=	tcpchat
+SRC=	main.c
+OBJ=	$(SRC:.c=.o)
+CFLAGS=	-W -Wall
+CC=	gcc
+RM=	@rm -fv
+
+$(NAME):	$(OBJ)
+	$(CC) -o $(NAME) $(OBJ)
+
+clean:
+	$(RM) $(OBJ)
+
+fclean:
+	$(RM) $(NAME)
+
+re:	clean fclean $(NAME)

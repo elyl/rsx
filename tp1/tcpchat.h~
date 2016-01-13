@@ -1,0 +1,6 @@
+#ifndef __TCPCHAT_H__
+#define __TCPCHAT_H__
+
+void	start_listening(int port);
+
+#endif
