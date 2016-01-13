@@ -18,6 +18,8 @@ typedef struct s_client_list
 
 void		start_listening(int port);
 void		delete_client(t_client *client);
+void		send_all(char *buffer);
+void		close_client(t_client *client);
 
 void		*listen_client(void *arg);
 

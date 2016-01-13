@@ -5,6 +5,7 @@
 #include <sys/socket.h>
 #include <sys/types.h>
 #include <pthread.h>
+#include <string.h>
 #include "tcpchat.h"
 
 static t_client_list	client_list;
@@ -49,7 +50,7 @@ void start_listening(int port)
 	printf("Erreur d'accept\n");
       while (client_list.mutex == 1);
       client_list.mutex = 1;
-      add_client(clients, client);
+      add_client(client_list.list, client);
       pthread_create(&client_list.nb_clients, NULL, listen_client, client);
       ++(client_list.nb_clients);
       client_list.mutex = 0;
@@ -69,13 +70,25 @@ void *listen_client(void *arg)
 	printf("Erreur recv\n");
       send_all(buffer);
       printf("%s\n", buffer);
+      if (strncmp("bye", buffer, 3) == 0)
+	close_client(client);
     }
   return (NULL);
 }
 
+void close_client(t_client *client)
+{
+  while (client_list.mutex == 1);
+  client_list.mutex = 1;
+  close(client->sock);
+  delete_client(client);
+  client_list.mutex = 0;
+  pthread_exit(NULL);
+}
+
 void send_all(char *buffer)
 {
-  t_list	*list;
+  t_client	*list;
 
   while (client_list.mutex == 1);
   client_list.mutex = 1;
