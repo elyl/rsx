@@ -6,9 +6,13 @@
 #include <sys/types.h>
 #include <pthread.h>
 #include <string.h>
+#include <sys/select.h>
 #include "tcpchat.h"
 
 static t_client_list	client_list;
+static fd_set		set_access;
+static fd_set		set_write;
+static fd_set		set_read;
 
 int main(int argc, char **argv)
 {
@@ -22,6 +26,9 @@ int main(int argc, char **argv)
       exit (1);
     }
   port = atoi(argv[1]);
+  FD_ZERO(&set_access);
+  FD_ZERO(&set_read);
+  FD_ZERO(&set_write);
   start_listening(port);
   return (0);
 }

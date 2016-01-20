@@ -1,0 +1,17 @@
+#include "tcpchat.h"
+
+void echo(char *args)
+{
+  return;
+}
+
+void ack(char *args)
+{
+  return;
+}
+
+void compute(char *agrs)
+{
+  return;
+}
+
