@@ -51,20 +51,21 @@ void open_connection(int port)
 void wait_client(int sock, struct sockaddr_in *sock_in)
 {
   int			csock;
-  struct sockaddr_in	csin;
+  struct sockaddr_in	*csin;
   unsigned int		size;
   struct moche		m;
   
   while (1)
     {
+      csin = malloc(sizeof(csin));
       size = sizeof(csin);
-      if ((csock = accept(sock, (struct sockaddr*)&csin, &size)) == -1)
+      if ((csock = accept(sock, (struct sockaddr*)csin, &size)) == -1)
 	{
 	  perror("accept()");
 	  exit(errno);
 	}
       m.csock = csock;
-      m.csin = &csin;
+      m.csin = csin;
       pthread_create((pthread_t*)&nbclient, NULL, thread_entry, &m);
       ++nbclient;
     }
@@ -76,6 +77,7 @@ void *thread_entry(void *arg)
   struct sockaddr_in	*csin;
   struct moche		*m;
 
+  printf("Nouveau client\n");
   m = (struct moche*)arg;
   csock = m->csock;
   csin = m->csin;
@@ -96,7 +98,9 @@ void listen_client(int sock, struct sockaddr_in *sin)
 	perror("read()");
       buffer[n] = '\0';
       printf("%d: %s\n", n, buffer);
-      if (n == 0)
-	return;
+      if (write(sock, buffer, n + 1) == -1)
+	perror("write()");
+      /*      if (n == 0)
+	      return;*/
     }
 }

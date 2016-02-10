@@ -33,7 +33,7 @@ void launch_test(char *server, int port)
   int		buffer_size;
 
   buffer_size = 1;
-  while (buffer_size <= 2)
+  while (buffer_size <= 1 << 16)
     {
       t1 = 0;
       time(&t1);
@@ -41,8 +41,8 @@ void launch_test(char *server, int port)
       t2 = 0;
       time(&t2);
       printf("buffer_size : %d, time : %f\n", buffer_size, (double)(t2 - t1));
-      ++buffer_size;
-      }
+      buffer_size <<= 1;
+    }
 }
 
 void communicate(char *server, int port, int buffer_size)
@@ -55,20 +55,23 @@ void communicate(char *server, int port, int buffer_size)
 
   buffer = malloc((buffer_size + 1) * sizeof(char));
   //Connexion
-  sock = socket(AF_INET, SOCK_STREAM, 0);
-  host = gethostbyname(server);
-  sock_in.sin_addr = *(struct in_addr*)host->h_addr;
-  sock_in.sin_port = htons(port);
-  sock_in.sin_family = AF_INET;
-  connect(sock, (struct sockaddr*)&sock_in, sizeof(struct sockaddr));
-  i = 0;
+    i = 0;
   while (i < gbuffer_len)
     {
+      sock = socket(AF_INET, SOCK_STREAM, 0);
+      host = gethostbyname(server);
+      sock_in.sin_addr = *(struct in_addr*)host->h_addr;
+      sock_in.sin_port = htons(port);
+      sock_in.sin_family = AF_INET;
+      connect(sock, (struct sockaddr*)&sock_in, sizeof(struct sockaddr));
       buffer_size = (gbuffer_len - i < buffer_size) ? gbuffer_len - i : buffer_size;
-      strncpy(buffer, &gbuffer[i], buffer_size);
+      memcpy(buffer, &gbuffer[i], buffer_size);
+      printf("envoie...\n");
       write(sock, buffer, buffer_size);
-      //send(sock, buffer, buffer_size, 0);
+      printf("reception...\n");
+      read(sock, buffer, buffer_size + 1);
       i += buffer_size;
+      close(sock);
     }
   free(buffer);
 }
