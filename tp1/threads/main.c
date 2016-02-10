@@ -9,6 +9,8 @@
 #include "tcpchat.h"
 
 static int nbclient;
+static int r;
+static int s;
 
 int main(int argc, char **argv)
 {
@@ -18,6 +20,8 @@ int main(int argc, char **argv)
       return (1);
     }
   nbclient = 0;
+  r = 0;
+  s = 0;
   open_connection(atoi(argv[1]));
   return (0);
 }
@@ -90,17 +94,23 @@ void listen_client(int sock, struct sockaddr_in *sin)
   char	buffer[BUFFER_SIZE + 1];
   int	n;
   
-  while (1)
+  while ((n = read(sock, buffer, BUFFER_SIZE)) > 0)
     {
-      /*if ((n = recv(sock, buffer, BUFFER_SIZE, 0)) < 0)
-	perror("recv()");*/
-      if ((n = read(sock, buffer, BUFFER_SIZE)) < 0)
-	perror("read()");
+      r += n;
+      //printf("reception...\n");
+      /*if ((n = read(sock, buffer, BUFFER_SIZE)) < 0)
+	perror("read()");*/
       buffer[n] = '\0';
-      printf("%d: %s\n", n, buffer);
-      if (write(sock, buffer, n + 1) == -1)
-	perror("write()");
+      printf("%d %d %d\n", n, r, s);
+      // printf("%d: %s\n", n, buffer);
+      //printf("envoie...\n");
+      /*if (write(sock, buffer, n + 1) == -1)
+	perror("write()");*/
+      if ((n = write(sock, buffer, n)) == -1)
+	perror("send");
+      s += n;
       /*      if (n == 0)
 	      return;*/
     }
+  //perror("recv()");
 }
