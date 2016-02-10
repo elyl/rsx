@@ -1,157 +1,102 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <sys/socket.h>
 #include <sys/types.h>
-#include <string.h>
+#include <sys/socket.h>
 #include <errno.h>
+#include <arpa/inet.h>
+#include <pthread.h>
+#include <unistd.h>
 #include "tcpchat.h"
 
-static t_client_list	client_list;
-static t_command cmd[] = {
-  {"ack",	ack},
-  {"echo",	echo},
-  {"compute",	compute}
-};
+static int nbclient;
 
 int main(int argc, char **argv)
 {
-  int			port;
-  
-  client_list.nb_clients = 0;
-  client_list.mutex = 0;
   if (argc < 2)
     {
       printf("Usage : ./tcpchat <port>\n");
-      exit (1);
+      return (1);
     }
-  port = atoi(argv[1]);
-  start_listening(port);
+  nbclient = 0;
+  open_connection(atoi(argv[1]));
   return (0);
 }
 
-size_t strlenn(const char *buffer)
-{
-  size_t	len;
-
-  len = 0;
-  while (buffer[len] != '\n')
-    ++len;
-  return (len);
-}
-
-void start_listening(int port)
+void open_connection(int port)
 {
   int			sock;
-  unsigned int		size;
   struct sockaddr_in	sock_in;
-  t_client		*client;
-  
+
   if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1)
-    printf("Erreur de generation de socket\n");
+    {
+      perror("socket()");
+      exit(errno);
+    }
   sock_in.sin_addr.s_addr = htonl(INADDR_ANY);
   sock_in.sin_family = AF_INET;
   sock_in.sin_port = htons(port);
-  if ((bind(sock, (struct sockaddr*)&sock_in, sizeof(sock_in))) == -1)
-    printf("Erreur de bind\n");
-  if ((listen(sock, 5)) == -1)
-    printf("Erreur de listen\n");
-  size = sizeof(sock_in);
+  if (bind(sock, (struct sockaddr*)&sock_in, sizeof(sock_in)) == -1)
+    {
+      perror("bind()");
+      exit(errno);
+    }
+  if (listen(sock, 5) == -1)
+    {
+      perror("listen()");
+      exit(errno);
+    }
+  wait_client(sock, &sock_in);
+}
+
+void wait_client(int sock, struct sockaddr_in *sock_in)
+{
+  int			csock;
+  struct sockaddr_in	csin;
+  unsigned int		size;
+  struct moche		m;
+  
   while (1)
     {
-      client = malloc(sizeof(t_client));
-      if ((client->sock = accept(sock, (struct sockaddr*)&sock_in, &size)) == -1)
-	printf("Erreur d'accept\n");
-      while (client_list.mutex == 1);
-      client_list.mutex = 1;
-      client_list.list = add_client(client_list.list, client);
-      pthread_create(&client_list.nb_clients, NULL, listen_client, client);
-      ++(client_list.nb_clients);
-      client_list.mutex = 0;
+      size = sizeof(csin);
+      if ((csock = accept(sock, (struct sockaddr*)&csin, &size)) == -1)
+	{
+	  perror("accept()");
+	  exit(errno);
+	}
+      m.csock = csock;
+      m.csin = &csin;
+      pthread_create((pthread_t*)&nbclient, NULL, thread_entry, &m);
+      ++nbclient;
     }
 }
 
-void *listen_client(void *arg)
+void *thread_entry(void *arg)
 {
-  t_client	*client;
-  unsigned int	size;
-  int		len;
-  char		buffer[BUFFER_SIZE];
-  int		i;
+  int			csock;
+  struct sockaddr_in	*csin;
+  struct moche		*m;
 
-  client = (t_client*)arg;
-  size = 0;
-  while (1)
-    {
-      if ((len = recvfrom(client->sock, buffer, BUFFER_SIZE, 0, (struct sockaddr*)(&client->sock_in), &size)) == -1)
-	printf("Erreur recv %d\n", errno);
-      printf("%d %s\n", len, buffer);
-      if (len > 1 && buffer[0] == '/')
-	{
-	  i = 0;
-	  while (i < 3)
-	    {
-	      if (strncmp(cmd[i].text, &buffer[1], strlen(cmd[i].text)) == 0)
-		cmd[i].fn(buffer, client);
-	      ++i;
-	    }
-	}
-      else
-	send_all(buffer, len - 1);
-      if (len > 2 && strncmp("bye", buffer, 3) == 0)
-	close_client(client);
-    }
+  m = (struct moche*)arg;
+  csock = m->csock;
+  csin = m->csin;
+  listen_client(csock, csin);
   return (NULL);
 }
 
-void close_client(t_client *client)
+void listen_client(int sock, struct sockaddr_in *sin)
 {
-  while (client_list.mutex == 1);
-  client_list.mutex = 1;
-  close(client->sock);
-  delete_client(client);
-  client_list.mutex = 0;
-  pthread_exit(NULL);
-}
-
-void send_all(char *buffer, size_t len)
-{
-  t_client	*list;
-
-  while (client_list.mutex == 1);
-  client_list.mutex = 1;
-  list = client_list.list;
-  while (list != NULL)
+  char	buffer[BUFFER_SIZE + 1];
+  int	n;
+  
+  while (1)
     {
-      printf("%d\n", (int)send(list->sock, buffer, len + 1, 0));
-      list = list->next;
+      /*if ((n = recv(sock, buffer, BUFFER_SIZE, 0)) < 0)
+	perror("recv()");*/
+      if ((n = read(sock, buffer, BUFFER_SIZE)) < 0)
+	perror("read()");
+      buffer[n] = '\0';
+      printf("%d: %s\n", n, buffer);
+      if (n == 0)
+	return;
     }
-  client_list.mutex = 0;
-}
-
-void delete_client(t_client *client)
-{
-  if (client->prev != NULL)
-    client->prev->next = client->next;
-  if (client->next != NULL)
-    client->next->prev = client->prev;
-  free(client);
-}
-
-t_client *add_client(t_client *list, t_client *client)
-{
-  t_client	*first;
-
-  first = list;
-  client->next = NULL;
-  if (list == NULL)
-    {
-      client->prev = NULL;
-      return (client);
-    }
-  while (list->next != NULL)
-    list = list->next;
-  list->next = client;
-  client->prev = list;
-  return (first);
 }

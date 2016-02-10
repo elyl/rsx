@@ -33,16 +33,16 @@ void launch_test(char *server, int port)
   int		buffer_size;
 
   buffer_size = 1;
-  while (buffer_size <= gbuffer_len)
+  while (buffer_size <= 2)
     {
       t1 = 0;
       time(&t1);
       communicate(server, port, buffer_size);
       t2 = 0;
       time(&t2);
-      printf("buffer_size : %d, time : %d\n", buffer_size, atoi(ctime(&t2)) - atoi(ctime(&t1)));
+      printf("buffer_size : %d, time : %f\n", buffer_size, (double)(t2 - t1));
       ++buffer_size;
-    }
+      }
 }
 
 void communicate(char *server, int port, int buffer_size)
@@ -66,7 +66,8 @@ void communicate(char *server, int port, int buffer_size)
     {
       buffer_size = (gbuffer_len - i < buffer_size) ? gbuffer_len - i : buffer_size;
       strncpy(buffer, &gbuffer[i], buffer_size);
-      send(sock, buffer, buffer_size, 0);
+      write(sock, buffer, buffer_size);
+      //send(sock, buffer, buffer_size, 0);
       i += buffer_size;
     }
   free(buffer);
@@ -87,7 +88,7 @@ void read_file()
 	strcpy(gbuffer, buffer);
       else
 	strcat(gbuffer, buffer);
-gbuffer_len += n;
+      gbuffer_len += n;
     }
   close(fd);
 }
