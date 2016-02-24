@@ -4,6 +4,8 @@
 #define GBUFFER_SIZE	1 << 25
 #define BUFFER_SIZE	2048
 
+#define MIN(x, y) (x < y) ? x : y;
+
 void	read_file();
 void	launch_test(char *server, int port);
 void	communicate(char *server, int port, int buffer_size);

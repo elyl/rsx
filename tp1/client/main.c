@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <sys/timeb.h> 
 #include <netdb.h>
 #include <errno.h>
 #include "client.h"
@@ -24,28 +25,25 @@ int main(int argc, char **argv)
       printf("Usage : ./tcpclient <server> <port>\n");
       return (1);
     }
-  read_file();
   launch_test(argv[1], atoi(argv[2]));
   return (0);
 }
 
 void launch_test(char *server, int port)
 {
-  time_t	t1;
-  time_t	t2;
+  struct timeb	t1;
+  struct timeb	t2;
   int		buffer_size;
 
   buffer_size = 1;
-  while (buffer_size <= 1 << 16)
+  while (buffer_size <= 1 << 8)
     {
-      t1 = 0;
-      time(&t1);
+      ftime(&t1);
       s = 0;
       r = 0;
       communicate(server, port, buffer_size);
-      t2 = 0;
-      time(&t2);
-      printf("buffer_size : %d, time : %f\n", buffer_size, (double)(t2 - t1));
+      ftime(&t2);
+      printf("buffer_size : %d, time : %f\n", buffer_size, (double)(t2.millitm - t1.millitm));
       buffer_size <<= 1;
     }
 }
@@ -60,38 +58,34 @@ void communicate(char *server, int port, int buffer_size)
   struct sockaddr_in	sock_in;
   struct hostent	*host;
 
-  buffer = malloc((buffer_size + 1) * sizeof(char));
-  //Connexion
+  buffer = malloc((buffer_size + 2) * sizeof(char));
   i = 0;
-  memcpy(buffer, gbuffer, buffer_size);
-  buffer_size = MIN(gbuffer_len, buffer_size);
-  while (i < 1 << 25)
+  memset(buffer, (int)(0x41 | 0x00), buffer_size);
+  buffer[buffer_size] = '\n';
+  while (i < 1 << 16)
     {
       // Connexion
-      printf("Socket...\n");
-      sock = socket(AF_INET, SOCK_STREAM, 0);
+      if ((sock = socket(AF_INET, SOCK_STREAM, 0)) == -1)
+	perror("socket()");
       host = gethostbyname(server);
       sock_in.sin_addr = *(struct in_addr*)host->h_addr;
       sock_in.sin_port = htons(port);
       sock_in.sin_family = AF_INET;
-      printf("Connect...\n");
-      connect(sock, (struct sockaddr*)&sock_in, sizeof(struct sockaddr));
+      if (connect(sock, (struct sockaddr*)&sock_in, sizeof(struct sockaddr)) == -1)
+	perror("connect()");
 
-      printf("envoie...\n");
-      if ((n = send(sock, buffer, buffer_size, 0)) == -1)
+      printf("Emission %d\n", s + 1);
+      if ((n = write(sock, buffer, buffer_size)) == -1)
 	perror("write()");
       s += n;
-      printf("reception...\n");
-      if ((n = recv(sock, buffer_in, 1024, 0)) == -1)
-	perror("recv()");
+      printf("Reception %d\n", r + 1);
+      if ((n = read(sock, buffer_in, buffer_size)) == -1)
+	  perror("read()");
       r += n;
-      printf("%d %d %d %d\n", i, n, r, s);
-      //read(sock, buffer, buffer_size + 1);
       i += buffer_size;
-      /*if (i % 100 == 0)
-	printf("%d\n", i);*/
-      close(sock);
-      printf("caca\n");
+      printf("received : %d; sent %d\n", r, s);
+      if (close(sock) == -1)
+	perror("close()");
     }
   free(buffer);
 }
